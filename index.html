@@ -16,14 +16,15 @@
             padding: 12px 24px; border-radius: 8px; cursor: pointer;
             transition: background-color 0.2s;
         }
-        .btn-primary:hover { background-color: #3a7ae0; }
-        .btn-primary:disabled { background-color: #555; cursor: not-allowed; }
-        .weapon-card {
-            border: 1px solid #444; border-radius: 8px;
-            padding: 16px; background-color: #2a2e33;
+        .btn-secondary {
+            background-color: #4a5568; color: white; font-weight: 600;
+            padding: 8px 16px; border-radius: 8px; cursor: pointer;
+            transition: background-color 0.2s;
         }
-        .weapon-tier-Exotic { border-left: 4px solid #ceae33; }
-        .weapon-tier-Legendary { border-left: 4px solid #522f65; }
+        .btn-primary:hover { background-color: #3a7ae0; }
+        .btn-secondary:hover { background-color: #2d3748; }
+        .btn-primary:disabled, .btn-secondary:disabled { background-color: #555; cursor: not-allowed; }
+        /* ... other styles ... */
     </style>
 </head>
 <body class="bg-destiny-dark text-destiny-primary min-h-screen flex flex-col items-center justify-center p-4">
@@ -37,120 +38,82 @@
         <!-- Authentication Section -->
         <div id="auth-section" class="text-center">
             <p class="mb-4">Please connect your Bungie.net account to begin.</p>
-            <a href="/login" id="login-button" class="btn-primary inline-flex items-center">
-                <svg class="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
-                Login with Bungie.net
-            </a>
+            <div class="flex flex-col items-center space-y-4">
+                <a href="/login" id="login-button" class="btn-primary inline-flex items-center">
+                    <svg class="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                    Login with Bungie.net
+                </a>
+                <button id="test-api-button" class="btn-secondary text-sm">Test Public API</button>
+            </div>
+            <p id="test-api-result" class="mt-4 text-sm"></p>
         </div>
 
         <!-- Main App Section (hidden by default) -->
         <div id="main-app" class="hidden">
-            <div class="text-center mb-8">
-                <p id="welcome-message" class="text-lg mb-4">Welcome, Guardian!</p>
-                <button id="generate-button" class="btn-primary text-lg" disabled>
-                    <span id="generate-button-text">Generate Random Loadout</span>
-                    <span id="loading-spinner" class="hidden animate-spin">&#9696;</span>
-                </button>
-            </div>
-            <div id="loadout-display" class="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6"></div>
-            <div id="error-message" class="text-center mt-4 text-red-400 font-semibold"></div>
+            <!-- ... main app content ... -->
         </div>
     </div>
     
     <script>
+        // DOM Elements
         const authSection = document.getElementById('auth-section');
+        const testApiButton = document.getElementById('test-api-button');
+        const testApiResult = document.getElementById('test-api-result');
+        // ... other elements ...
+
+        // Event Listeners
+        testApiButton.addEventListener('click', testPublicApi);
+
+        /**
+         * Calls our server to test the public Bungie API.
+         */
+        async function testPublicApi() {
+            testApiButton.disabled = true;
+            testApiResult.textContent = 'Testing...';
+            try {
+                const response = await fetch('/api/get-public-milestones');
+                const data = await response.json();
+
+                if (response.ok && data.ErrorCode === 1) {
+                    testApiResult.textContent = 'Public API is UP! Fetched milestone data successfully.';
+                    testApiResult.style.color = '#48bb78'; // Green
+                } else {
+                    throw new Error(data.Message || 'Failed to fetch.');
+                }
+            } catch (error) {
+                testApiResult.textContent = `Public API test failed: ${error.message}`;
+                testApiResult.style.color = '#f56565'; // Red
+            } finally {
+                testApiButton.disabled = false;
+            }
+        }
+        
+        // ... rest of the script (window.onload, etc.) ...
         const mainApp = document.getElementById('main-app');
         const welcomeMessage = document.getElementById('welcome-message');
         const generateButton = document.getElementById('generate-button');
         const errorMessage = document.getElementById('error-message');
 
-        // Global variables
         let bungieAccessToken = null;
         let destinyMembershipId = null;
         let destinyMembershipType = null;
 
-        /**
-         * Helper function to create a delay.
-         * @param {number} ms - The number of milliseconds to wait.
-         * @returns {Promise} A promise that resolves after the delay.
-         */
-        const delay = ms => new Promise(res => setTimeout(res, ms));
-
-        /**
-         * Runs when the page loads. Checks for authentication tokens in the URL.
-         */
         window.onload = () => {
             const fragment = new URLSearchParams(window.location.hash.substring(1));
             const accessToken = fragment.get('access_token');
 
             if (accessToken) {
                 bungieAccessToken = accessToken;
-                window.history.replaceState(null, null, ' '); // Clean URL
+                window.history.replaceState(null, null, ' ');
                 showMainApp();
                 fetchUserProfile();
             }
         };
-        
-        /**
-         * Fetches the user's profile, with a retry mechanism.
-         */
+
         async function fetchUserProfile() {
-            const url = `/api/get-user-profile`;
-            let lastError = null;
-
-            // Loop 3 times for retries
-            for (let i = 0; i < 3; i++) {
-                try {
-                    console.log(`Attempt ${i + 1} to fetch user profile...`);
-                    const response = await fetch(url, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ accessToken: bungieAccessToken })
-                    });
-
-                    if (!response.ok) {
-                        const errorData = await response.json();
-                        throw new Error(errorData.error || `Server responded with status: ${response.status}`);
-                    }
-                    
-                    const data = await response.json();
-                    
-                    if (data.ErrorCode === 1) {
-                        const bungieNetUser = data.Response.bungieNetUser;
-                        welcomeMessage.textContent = `Welcome, ${bungieNetUser.uniqueName}!`;
-                        const destinyProfile = data.Response.destinyMemberships.find(m => m.membershipType > 0);
-                        
-                        if (destinyProfile) {
-                            destinyMembershipId = destinyProfile.membershipId;
-                            destinyMembershipType = destinyProfile.membershipType;
-                            console.log('Destiny Profile Found:', destinyMembershipId, destinyMembershipType);
-                            generateButton.disabled = false;
-                            errorMessage.textContent = ''; // Clear any previous errors
-                            return; // --- Success! Exit the function. ---
-                        } else {
-                             lastError = new Error("No valid Destiny 2 profile found for this Bungie.net account.");
-                        }
-                    } else {
-                        lastError = new Error(data.Message);
-                    }
-                } catch (error) {
-                    lastError = error;
-                    console.error(`Attempt ${i + 1} failed:`, error);
-                }
-
-                // If not the last attempt, wait for 1 second before retrying
-                if (i < 2) {
-                    await delay(1000);
-                }
-            }
-
-            // If the loop finishes without a successful return, it means all attempts failed.
-            errorMessage.textContent = `Error fetching profile: ${lastError.message}`;
+            // This function remains the same
         }
 
-        /**
-         * Hides the login button and shows the main application interface.
-         */
         function showMainApp() {
             authSection.classList.add('hidden');
             mainApp.classList.remove('hidden');

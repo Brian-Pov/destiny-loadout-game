@@ -1,5 +1,5 @@
-// server.js - Our Secure Backend *
-// FINAL, PROXY-BASED VERSION. This is a more robust and secure architecture.
+// server.js - Our Secure Backend
+// UPDATED: Added a new endpoint to test the public API.
 
 const express = require('express');
 const axios = require('axios');
@@ -9,15 +9,14 @@ const path = require('path');
 const app = express();
 const port = 8080;
 
-// --- The server will get credentials from the hosting environment ---
+// --- Get credentials from the hosting environment ---
 const BUNGIE_CLIENT_ID = process.env.BUNGIE_CLIENT_ID;
 const BUNGIE_CLIENT_SECRET = process.env.BUNGIE_CLIENT_SECRET;
 const BUNGIE_API_KEY = process.env.BUNGIE_API_KEY;
 
-
 app.use(cors());
-app.use(express.json()); // Middleware to parse JSON bodies
-app.use(express.static(path.join(__dirname))); // Serve static files like index.html
+app.use(express.json()); 
+app.use(express.static(path.join(__dirname))); 
 
 // --- AUTHENTICATION ENDPOINTS ---
 
@@ -55,40 +54,43 @@ app.get('/callback', async (req, res) => {
 });
 
 
-// --- NEW API PROXY ENDPOINT ---
+// --- API PROXY ENDPOINTS ---
 
 app.post('/api/get-user-profile', async (req, res) => {
     const { accessToken } = req.body;
-    console.log("Proxy endpoint hit. Access Token received:", accessToken ? "Yes" : "No");
-
-    if (!accessToken) {
-        return res.status(401).json({ error: 'No access token provided.' });
-    }
+    if (!accessToken) return res.status(401).json({ error: 'No access token provided.' });
 
     try {
         const bungieApiUrl = 'https://www.bungie.net/Platform/User/GetMembershipsForCurrentUser/';
-        
         const apiResponse = await axios.get(bungieApiUrl, {
             headers: {
                 'X-API-Key': BUNGIE_API_KEY,
                 'Authorization': `Bearer ${accessToken}`
             }
         });
-        
-        console.log("Successfully got response from Bungie.");
         res.json(apiResponse.data);
-
     } catch (error) {
-        console.error('API Proxy Error:', error.response ? error.response.data : error.message);
-        res.status(error.response?.status || 500).json({ 
-            error: 'Failed to fetch user profile from Bungie.',
-            details: error.response?.data
+        console.error('API Proxy Error (User Profile):', error.response ? error.response.data : error.message);
+        res.status(error.response?.status || 500).json({ error: 'Failed to fetch user profile from Bungie.' });
+    }
+});
+
+// --- NEW PUBLIC API TEST ENDPOINT ---
+app.get('/api/get-public-milestones', async (req, res) => {
+    try {
+        const bungieApiUrl = 'https://www.bungie.net/Platform/Destiny2/Milestones/';
+        const apiResponse = await axios.get(bungieApiUrl, {
+            headers: { 'X-API-Key': BUNGIE_API_KEY } // Public endpoints only need the API key
         });
+        res.json(apiResponse.data);
+    } catch (error) {
+        console.error('API Proxy Error (Public Milestones):', error.response ? error.response.data : error.message);
+        res.status(error.response?.status || 500).json({ error: 'Failed to fetch public milestones from Bungie.' });
     }
 });
 
 
 app.listen(port, () => {
     console.log(`Destiny Loadout Game server listening at http://localhost:${port}`);
-    console.log(`Navigate to your localtunnel URL to begin.`);
+    console.log(`Navigate to your Render URL to begin.`);
 });
