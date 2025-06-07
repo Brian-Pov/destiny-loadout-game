@@ -1,5 +1,5 @@
 // server.js - Our Secure Backend
-// UPDATED: Added a new endpoint to test the public API.
+// This file is correct and does not need changes if you've already updated it.
 
 const express = require('express');
 const axios = require('axios');
@@ -75,12 +75,12 @@ app.post('/api/get-user-profile', async (req, res) => {
     }
 });
 
-// --- NEW PUBLIC API TEST ENDPOINT ---
+// --- PUBLIC API TEST ENDPOINT ---
 app.get('/api/get-public-milestones', async (req, res) => {
     try {
         const bungieApiUrl = 'https://www.bungie.net/Platform/Destiny2/Milestones/';
         const apiResponse = await axios.get(bungieApiUrl, {
-            headers: { 'X-API-Key': BUNGIE_API_KEY } // Public endpoints only need the API key
+            headers: { 'X-API-Key': BUNGIE_API_KEY } 
         });
         res.json(apiResponse.data);
     } catch (error) {

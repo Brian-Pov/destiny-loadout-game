@@ -24,7 +24,6 @@
         .btn-primary:hover { background-color: #3a7ae0; }
         .btn-secondary:hover { background-color: #2d3748; }
         .btn-primary:disabled, .btn-secondary:disabled { background-color: #555; cursor: not-allowed; }
-        /* ... other styles ... */
     </style>
 </head>
 <body class="bg-destiny-dark text-destiny-primary min-h-screen flex flex-col items-center justify-center p-4">
@@ -50,58 +49,37 @@
 
         <!-- Main App Section (hidden by default) -->
         <div id="main-app" class="hidden">
-            <!-- ... main app content ... -->
+            <div class="text-center mb-8">
+                <p id="welcome-message" class="text-lg mb-4">Welcome, Guardian!</p>
+                <button id="generate-button" class="btn-primary text-lg" disabled>
+                    <span id="generate-button-text">Generate Random Loadout</span>
+                    <span id="loading-spinner" class="hidden animate-spin">&#9696;</span>
+                </button>
+            </div>
+            <div id="loadout-display" class="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6"></div>
+            <div id="error-message" class="text-center mt-4 text-red-400 font-semibold"></div>
         </div>
     </div>
     
     <script>
-        // DOM Elements
+        // --- COMPLETE SCRIPT ---
         const authSection = document.getElementById('auth-section');
-        const testApiButton = document.getElementById('test-api-button');
-        const testApiResult = document.getElementById('test-api-result');
-        // ... other elements ...
-
-        // Event Listeners
-        testApiButton.addEventListener('click', testPublicApi);
-
-        /**
-         * Calls our server to test the public Bungie API.
-         */
-        async function testPublicApi() {
-            testApiButton.disabled = true;
-            testApiResult.textContent = 'Testing...';
-            try {
-                const response = await fetch('/api/get-public-milestones');
-                const data = await response.json();
-
-                if (response.ok && data.ErrorCode === 1) {
-                    testApiResult.textContent = 'Public API is UP! Fetched milestone data successfully.';
-                    testApiResult.style.color = '#48bb78'; // Green
-                } else {
-                    throw new Error(data.Message || 'Failed to fetch.');
-                }
-            } catch (error) {
-                testApiResult.textContent = `Public API test failed: ${error.message}`;
-                testApiResult.style.color = '#f56565'; // Red
-            } finally {
-                testApiButton.disabled = false;
-            }
-        }
-        
-        // ... rest of the script (window.onload, etc.) ...
         const mainApp = document.getElementById('main-app');
         const welcomeMessage = document.getElementById('welcome-message');
         const generateButton = document.getElementById('generate-button');
         const errorMessage = document.getElementById('error-message');
+        const testApiButton = document.getElementById('test-api-button');
+        const testApiResult = document.getElementById('test-api-result');
 
         let bungieAccessToken = null;
         let destinyMembershipId = null;
         let destinyMembershipType = null;
 
+        const delay = ms => new Promise(res => setTimeout(res, ms));
+
         window.onload = () => {
             const fragment = new URLSearchParams(window.location.hash.substring(1));
             const accessToken = fragment.get('access_token');
-
             if (accessToken) {
                 bungieAccessToken = accessToken;
                 window.history.replaceState(null, null, ' ');
@@ -111,14 +89,73 @@
         };
 
         async function fetchUserProfile() {
-            // This function remains the same
+            let lastError = null;
+            for (let i = 0; i < 3; i++) {
+                try {
+                    const data = await apiProxyPost('/api/get-user-profile');
+                    if (data.ErrorCode !== 1) throw new Error(data.Message);
+
+                    const bungieNetUser = data.Response.bungieNetUser;
+                    welcomeMessage.textContent = `Welcome, ${bungieNetUser.uniqueName}!`;
+                    const destinyProfile = data.Response.destinyMemberships.find(m => m.membershipType > 0);
+                    
+                    if (destinyProfile) {
+                        destinyMembershipId = destinyProfile.membershipId;
+                        destinyMembershipType = destinyProfile.membershipType;
+                        generateButton.disabled = false;
+                        errorMessage.textContent = '';
+                        return; // Success
+                    } else {
+                        lastError = new Error("No valid Destiny 2 profile found.");
+                    }
+                } catch (error) {
+                    lastError = error;
+                    console.error(`Attempt ${i + 1} failed:`, error);
+                    if (i < 2) await delay(1000);
+                }
+            }
+            errorMessage.textContent = `Error fetching profile: ${lastError.message}`;
+        }
+
+        async function testPublicApi() {
+            testApiButton.disabled = true;
+            testApiResult.textContent = 'Testing...';
+            try {
+                const response = await fetch('/api/get-public-milestones');
+                const data = await response.json();
+                if (response.ok && data.ErrorCode === 1) {
+                    testApiResult.textContent = 'Public API is UP! Fetched milestone data successfully.';
+                    testApiResult.style.color = '#48bb78';
+                } else {
+                    throw new Error(data.Message || 'Failed to fetch.');
+                }
+            } catch (error) {
+                testApiResult.textContent = `Public API test failed: ${error.message}`;
+                testApiResult.style.color = '#f56565';
+            } finally {
+                testApiButton.disabled = false;
+            }
+        }
+
+        async function apiProxyPost(endpoint, body = {}) {
+            const response = await fetch(endpoint, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ...body, accessToken: bungieAccessToken })
+            });
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || `Server responded with status: ${response.status}`);
+            }
+            return response.json();
         }
 
         function showMainApp() {
-            authSection.classList.add('hidden');
-            mainApp.classList.remove('hidden');
+            authSection.style.display = 'none';
+            mainApp.style.display = 'block';
         }
 
+        testApiButton.addEventListener('click', testPublicApi);
     </script>
 </body>
 </html>
