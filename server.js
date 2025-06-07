@@ -13,7 +13,6 @@ const port = 8080;
 const BUNGIE_CLIENT_ID = process.env.BUNGIE_CLIENT_ID;
 const BUNGIE_CLIENT_SECRET = process.env.BUNGIE_CLIENT_SECRET;
 const BUNGIE_API_KEY = process.env.BUNGIE_API_KEY;
-```process.env` is the standard Node.js way to access secure environment variables.
 
 
 app.use(cors());
