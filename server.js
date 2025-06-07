@@ -1,4 +1,4 @@
-// server.js - Our Secure Backend
+// server.js - Our Secure Backend *
 // FINAL, PROXY-BASED VERSION. This is a more robust and secure architecture.
 
 const express = require('express');
